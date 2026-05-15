@@ -1,0 +1,4 @@
+{
+  "name": "pch-process-flow",
+  "buildCommand": "npm run build"
+}
