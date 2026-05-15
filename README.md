@@ -80,7 +80,6 @@ npm start
 
 - **Next.js 15** - React framework
 - **React 18** - UI library
-- **Tabler Icons React** - Icon library
 - **DM Sans Font** - Typography (from Google Fonts)
 
 ## Customization

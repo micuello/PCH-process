@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { IconChevronDown, IconArrowRight } from "tabler-icons-react";
 
 const phases = [
   {
@@ -446,7 +445,7 @@ export default function ProcessFlow() {
                         transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)",
                       }}
                     >
-                      <IconChevronDown size={16} />
+                      ▼
                     </div>
                   </div>
 
@@ -687,7 +686,7 @@ export default function ProcessFlow() {
               >
                 {flow.from}
               </span>
-              <IconArrowRight size={12} style={{ color: "var(--color-text-tertiary)" }} />
+              <span style={{ color: "var(--color-text-tertiary)" }}>→</span>
               <span
                 style={{
                   minWidth: 64,
