@@ -395,345 +395,70 @@ const sectionTitles = {
   lineage: "🔀 Data Lineage",
 };
 
-export default function ProcessFlow() {
-  const [expandedStep, setExpandedStep] = useState<string | null>(null);
-  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
+function getArrowLabel(step: any): string {
+  const lineage = step.sections?.lineage;
+  if (!lineage?.outputFields || lineage.outputFields.length === 0) return "";
+  const fields = lineage.outputFields as Array<{ field: string }>;
+  if (fields.length === 1) return fields[0].field;
+  if (fields.length === 2) return `${fields[0].field} · ${fields[1].field}`;
+  return `${fields[0].field} +${fields.length - 1}`;
+}
 
-  const toggleStep = (id: string) => setExpandedStep(expandedStep === id ? null : id);
-
-  const toggleSection = (stepId: string, sectionKey: string) => {
-    const key = `${stepId}-${sectionKey}`;
-    setExpandedSections((prev) => ({
-      ...prev,
-      [key]: !prev[key],
-    }));
-  };
-
-  const isSectionExpanded = (stepId: string, sectionKey: string) => {
-    return expandedSections[`${stepId}-${sectionKey}`] || false;
-  };
-
-  const renderSection = (step: any, sectionKey: string, section: any, phaseColor: string) => {
-    const isExpanded = isSectionExpanded(step.id, sectionKey);
-
-    return (
-      <div
-        key={sectionKey}
-        style={{
-          marginBottom: 12,
-          borderRadius: 8,
-          border: `1px solid ${phaseColor}22`,
-          overflow: "hidden",
-        }}
-      >
-        {/* Section header - clickable */}
-        <div
-          onClick={() => toggleSection(step.id, sectionKey)}
-          style={{
-            padding: "10px 12px",
-            background: isExpanded ? phaseColor + "08" : "transparent",
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            transition: "background 0.2s",
-            borderBottom: isExpanded ? `1px solid ${phaseColor}22` : "none",
-          }}
-        >
-          <span
-            style={{
-              fontSize: 13,
-              fontWeight: 600,
-              color: phaseColor,
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-            }}
-          >
-            {sectionTitles[sectionKey as keyof typeof sectionTitles]}
-          </span>
-          <span
-            style={{
-              fontSize: 12,
-              transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)",
-              transition: "transform 0.2s",
-            }}
-          >
-            ▼
-          </span>
-        </div>
-
-        {/* Section content */}
-        {isExpanded && (
-          <div style={{ padding: "12px", fontSize: 12, color: "var(--color-text-secondary)", lineHeight: 1.6 }}>
-            <SectionContent section={section} sectionKey={sectionKey} />
-          </div>
-        )}
-      </div>
-    );
-  };
+function renderSection(
+  step: any,
+  sectionKey: string,
+  section: any,
+  phaseColor: string,
+  isSectionExpanded: (stepId: string, key: string) => boolean,
+  toggleSection: (stepId: string, key: string) => void,
+) {
+  const isExpanded = isSectionExpanded(step.id, sectionKey);
 
   return (
-    <div style={{ fontFamily: "'DM Sans', sans-serif", maxWidth: 1000, margin: "0 auto", padding: "16px 8px" }}>
-      <div style={{ marginBottom: 24, padding: "16px", background: "var(--color-background-secondary)", borderRadius: 10 }}>
-        <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>PCH Process Flow — Detailed Breakdown</h1>
-        <p style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>
-          Each step includes Input, Output, Deliverables, Communication, Timeline, Dependencies, SLAs, Owner, and Data Lineage.
-          Click sections to expand details.
-        </p>
-      </div>
-
-      {phases.map((phase) => (
-        <div
-          key={phase.id}
+    <div
+      key={sectionKey}
+      style={{
+        marginBottom: 12,
+        borderRadius: 8,
+        border: `1px solid ${phaseColor}22`,
+        overflow: "hidden",
+      }}
+    >
+      <div
+        onClick={() => toggleSection(step.id, sectionKey)}
+        style={{
+          padding: "10px 12px",
+          background: isExpanded ? phaseColor + "08" : "transparent",
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          transition: "background 0.2s",
+          borderBottom: isExpanded ? `1px solid ${phaseColor}22` : "none",
+        }}
+      >
+        <span
           style={{
-            marginBottom: 32,
-            borderRadius: 14,
-            border: `1.5px solid ${phase.color}22`,
-            overflow: "hidden",
+            fontSize: 13,
+            fontWeight: 600,
+            color: phaseColor,
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
           }}
         >
-          {/* Phase header */}
-          <div
-            style={{
-              padding: "14px 20px",
-              background: phase.color,
-              color: "#fff",
-              fontSize: 16,
-              fontWeight: 600,
-              letterSpacing: 0.3,
-            }}
-          >
-            {phase.title}
-          </div>
+          {sectionTitles[sectionKey as keyof typeof sectionTitles]}
+        </span>
+        <span style={{ fontSize: 12, transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}>
+          ▼
+        </span>
+      </div>
 
-          <div style={{ padding: "16px 16px 8px" }}>
-            {phase.steps.map((step, idx) => {
-              const isExpanded = expandedStep === step.id;
-              const isSplit = step.arrow === "split";
-              const isSplitChild = step.id.includes("5a") || step.id.includes("5b");
-
-              if (isSplitChild) return null;
-
-              const splitChildren = isSplit ? phase.steps.filter((s) => s.id.includes("5a") || s.id.includes("5b")) : [];
-
-              return (
-                <div key={step.id}>
-                  {/* Step card */}
-                  <div
-                    onClick={() => toggleStep(step.id)}
-                    style={{
-                      display: "flex",
-                      gap: 12,
-                      padding: "12px 14px",
-                      marginBottom: 4,
-                      borderRadius: 10,
-                      cursor: "pointer",
-                      background: isExpanded ? phase.bgColor : "transparent",
-                      border: isExpanded ? `1px solid ${phase.color}33` : "1px solid transparent",
-                      transition: "all 0.2s ease",
-                    }}
-                  >
-                    {/* Actor badge */}
-                    <div
-                      style={{
-                        minWidth: 72,
-                        height: 26,
-                        borderRadius: 6,
-                        background: step.actorColor + "18",
-                        color: step.actorColor,
-                        fontSize: 10,
-                        fontWeight: 600,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        marginTop: 2,
-                        textTransform: "uppercase",
-                        letterSpacing: 0.5,
-                      }}
-                    >
-                      {step.actor}
-                    </div>
-
-                    {/* Content */}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div
-                        style={{
-                          fontSize: 14,
-                          fontWeight: 600,
-                          color: "var(--color-text-primary)",
-                          marginBottom: 2,
-                        }}
-                      >
-                        <span
-                          style={{
-                            color: phase.color,
-                            marginRight: 6,
-                            fontSize: 12,
-                            opacity: 0.6,
-                          }}
-                        >
-                          {String(idx + 1).padStart(2, "0")}
-                        </span>
-                        {step.title}
-                      </div>
-                      <div
-                        style={{
-                          fontSize: 12,
-                          color: "var(--color-text-secondary)",
-                          lineHeight: 1.4,
-                        }}
-                      >
-                        {step.detail}
-                      </div>
-                    </div>
-
-                    {/* Expand icon */}
-                    <div
-                      style={{
-                        color: "var(--color-text-tertiary)",
-                        fontSize: 16,
-                        marginTop: 2,
-                        transition: "transform 0.2s",
-                        transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)",
-                      }}
-                    >
-                      ▼
-                    </div>
-                  </div>
-
-                  {/* Expanded sections */}
-                  {isExpanded && (
-                    <div
-                      style={{
-                        padding: "12px 14px 16px",
-                        background: phase.bgColor + "40",
-                        borderTop: `1px solid ${phase.color}22`,
-                      }}
-                    >
-                      {Object.entries(step.sections).map(([sectionKey, section]) =>
-                        renderSection(step, sectionKey, section, phase.color),
-                      )}
-                    </div>
-                  )}
-
-                  {/* Arrow between steps */}
-                  {step.arrow && !isSplit && (
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "center",
-                        padding: "2px 0",
-                        marginLeft: 84,
-                      }}
-                    >
-                      <div
-                        style={{
-                          width: 1.5,
-                          height: 20,
-                          background: `linear-gradient(to bottom, ${phase.color}44, ${phase.color}22)`,
-                          position: "relative",
-                        }}
-                      >
-                        <div
-                          style={{
-                            position: "absolute",
-                            bottom: -4,
-                            left: "50%",
-                            transform: "translateX(-50%)",
-                            width: 0,
-                            height: 0,
-                            borderLeft: "4px solid transparent",
-                            borderRight: "4px solid transparent",
-                            borderTop: `5px solid ${phase.color}44`,
-                          }}
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Split decision */}
-                  {isSplit && splitChildren.length > 0 && (
-                    <>
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "center",
-                          padding: "4px 0",
-                          marginLeft: 84,
-                        }}
-                      >
-                        <div style={{ width: 1.5, height: 16, background: phase.color + "33" }} />
-                      </div>
-                      <div
-                        style={{
-                          display: "grid",
-                          gridTemplateColumns: "1fr 1fr",
-                          gap: 10,
-                          marginLeft: 86,
-                          marginRight: 14,
-                          marginBottom: 8,
-                        }}
-                      >
-                        {splitChildren.map((child) => (
-                          <div
-                            key={child.id}
-                            onClick={() => toggleStep(child.id)}
-                            style={{
-                              padding: "10px 12px",
-                              borderRadius: 10,
-                              cursor: "pointer",
-                              border: `1.5px solid ${child.actorColor}33`,
-                              background: expandedStep === child.id ? child.actorColor + "0A" : "transparent",
-                              transition: "all 0.2s",
-                            }}
-                          >
-                            <div
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 6,
-                                marginBottom: 4,
-                              }}
-                            >
-                              <div
-                                style={{
-                                  width: 8,
-                                  height: 8,
-                                  borderRadius: "50%",
-                                  background: child.actorColor,
-                                }}
-                              />
-                              <span
-                                style={{
-                                  fontSize: 13,
-                                  fontWeight: 600,
-                                  color: child.actorColor,
-                                }}
-                              >
-                                {child.title}
-                              </span>
-                            </div>
-                            <div
-                              style={{
-                                fontSize: 11,
-                                color: "var(--color-text-secondary)",
-                                marginBottom: 4,
-                              }}
-                            >
-                              {child.detail}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+      {isExpanded && (
+        <div style={{ padding: "12px", fontSize: 12, color: "var(--color-text-secondary)", lineHeight: 1.6 }}>
+          <SectionContent section={section} sectionKey={sectionKey} />
         </div>
-      ))}
+      )}
     </div>
   );
 }
@@ -743,17 +468,10 @@ function SectionContent({ section, sectionKey }: { section: any; sectionKey: str
     return (
       <div>
         {section.description && <p style={{ marginBottom: 12 }}>{section.description}</p>}
-
         {section.dataElements && (
           <div style={{ marginBottom: 12 }}>
             <p style={{ fontWeight: 600, marginBottom: 6 }}>Data Elements:</p>
-            <table
-              style={{
-                width: "100%",
-                borderCollapse: "collapse",
-                fontSize: 12,
-              }}
-            >
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
               <tbody>
                 {section.dataElements.map((el: any, i: number) => (
                   <tr key={i} style={{ borderBottom: "1px solid var(--color-border-tertiary)" }}>
@@ -765,25 +483,12 @@ function SectionContent({ section, sectionKey }: { section: any; sectionKey: str
             </table>
           </div>
         )}
-
-        {section.frequency && (
-          <p>
-            <strong>Frequency:</strong> {section.frequency}
-          </p>
-        )}
-
-        {section.source && (
-          <p>
-            <strong>Source:</strong> {section.source}
-          </p>
-        )}
-
+        {section.frequency && <p><strong>Frequency:</strong> {section.frequency}</p>}
+        {section.source && <p><strong>Source:</strong> {section.source}</p>}
         {section.escalation && (
           <div style={{ marginTop: 12, padding: "10px", background: "#ff4444" + "10", borderRadius: 6, borderLeft: "3px solid #ff4444" }}>
             <p style={{ fontWeight: 600, marginBottom: 6 }}>Escalation Protocol:</p>
-            <p>
-              <strong>Trigger:</strong> {section.escalation.trigger}
-            </p>
+            <p><strong>Trigger:</strong> {section.escalation.trigger}</p>
             <p style={{ marginTop: 6 }}>
               <strong>Level 1:</strong> To {section.escalation.level1.to} via {section.escalation.level1.method} — {section.escalation.level1.action}
             </p>
@@ -797,33 +502,15 @@ function SectionContent({ section, sectionKey }: { section: any; sectionKey: str
     );
   }
 
-  if (sectionKey === "output") {
-    return <div>{section.description}</div>;
-  }
+  if (sectionKey === "output") return <div>{section.description}</div>;
 
   if (sectionKey === "deliverables") {
     return (
       <div>
-        {section.format && (
-          <p>
-            <strong>Format:</strong> {section.format}
-          </p>
-        )}
-        {section.method && (
-          <p>
-            <strong>Method:</strong> {section.method}
-          </p>
-        )}
-        {section.recipient && (
-          <p>
-            <strong>Recipient:</strong> {section.recipient}
-          </p>
-        )}
-        {section.confirmation && (
-          <p>
-            <strong>Confirmation:</strong> {section.confirmation}
-          </p>
-        )}
+        {section.format && <p><strong>Format:</strong> {section.format}</p>}
+        {section.method && <p><strong>Method:</strong> {section.method}</p>}
+        {section.recipient && <p><strong>Recipient:</strong> {section.recipient}</p>}
+        {section.confirmation && <p><strong>Confirmation:</strong> {section.confirmation}</p>}
       </div>
     );
   }
@@ -831,26 +518,10 @@ function SectionContent({ section, sectionKey }: { section: any; sectionKey: str
   if (sectionKey === "communication") {
     return (
       <div>
-        {section.sender && (
-          <p>
-            <strong>Sender:</strong> {section.sender.actor} ({section.sender.contact})
-          </p>
-        )}
-        {section.receiver && (
-          <p>
-            <strong>Receiver:</strong> {section.receiver.actor} ({section.receiver.contact})
-          </p>
-        )}
-        {section.confirmationRequired !== undefined && (
-          <p>
-            <strong>Confirmation Required:</strong> {section.confirmationRequired ? "Yes" : "No"}
-          </p>
-        )}
-        {section.confirmationMethod && (
-          <p>
-            <strong>Confirmation Method:</strong> {section.confirmationMethod}
-          </p>
-        )}
+        {section.sender && <p><strong>Sender:</strong> {section.sender.actor} ({section.sender.contact})</p>}
+        {section.receiver && <p><strong>Receiver:</strong> {section.receiver.actor} ({section.receiver.contact})</p>}
+        {section.confirmationRequired !== undefined && <p><strong>Confirmation Required:</strong> {section.confirmationRequired ? "Yes" : "No"}</p>}
+        {section.confirmationMethod && <p><strong>Confirmation Method:</strong> {section.confirmationMethod}</p>}
       </div>
     );
   }
@@ -858,21 +529,9 @@ function SectionContent({ section, sectionKey }: { section: any; sectionKey: str
   if (sectionKey === "timeline") {
     return (
       <div>
-        {section.frequency && (
-          <p>
-            <strong>Frequency:</strong> {section.frequency}
-          </p>
-        )}
-        {section.relativeToETD && (
-          <p>
-            <strong>Relative to ETD:</strong> {section.relativeToETD}
-          </p>
-        )}
-        {section.additionalConstraints && (
-          <p>
-            <strong>Additional Constraints:</strong> {section.additionalConstraints}
-          </p>
-        )}
+        {section.frequency && <p><strong>Frequency:</strong> {section.frequency}</p>}
+        {section.relativeToETD && <p><strong>Relative to ETD:</strong> {section.relativeToETD}</p>}
+        {section.additionalConstraints && <p><strong>Additional Constraints:</strong> {section.additionalConstraints}</p>}
       </div>
     );
   }
@@ -880,16 +539,8 @@ function SectionContent({ section, sectionKey }: { section: any; sectionKey: str
   if (sectionKey === "dependencies") {
     return (
       <div>
-        {section.upstream && (
-          <p>
-            <strong>Upstream Dependencies:</strong> {section.upstream}
-          </p>
-        )}
-        {section.blockedBy && section.blockedBy.length > 0 && (
-          <p>
-            <strong>Blocked By:</strong> {section.blockedBy.join(", ")}
-          </p>
-        )}
+        {section.upstream && <p><strong>Upstream Dependencies:</strong> {section.upstream}</p>}
+        {section.blockedBy && section.blockedBy.length > 0 && <p><strong>Blocked By:</strong> {section.blockedBy.join(", ")}</p>}
       </div>
     );
   }
@@ -897,21 +548,9 @@ function SectionContent({ section, sectionKey }: { section: any; sectionKey: str
   if (sectionKey === "slas") {
     return (
       <div>
-        {section.frequency && (
-          <p>
-            <strong>Frequency:</strong> {section.frequency}
-          </p>
-        )}
-        {section.maxCompletionTime && (
-          <p>
-            <strong>Max Completion Time:</strong> {section.maxCompletionTime}
-          </p>
-        )}
-        {section.escalationSLAminutes && (
-          <p>
-            <strong>Escalation SLA:</strong> {section.escalationSLADescription}
-          </p>
-        )}
+        {section.frequency && <p><strong>Frequency:</strong> {section.frequency}</p>}
+        {section.maxCompletionTime && <p><strong>Max Completion Time:</strong> {section.maxCompletionTime}</p>}
+        {section.escalationSLAminutes && <p><strong>Escalation SLA:</strong> {section.escalationSLADescription}</p>}
       </div>
     );
   }
@@ -919,21 +558,9 @@ function SectionContent({ section, sectionKey }: { section: any; sectionKey: str
   if (sectionKey === "owner") {
     return (
       <div>
-        {section.organization && (
-          <p>
-            <strong>Organization:</strong> {section.organization}
-          </p>
-        )}
-        {section.contact && (
-          <p>
-            <strong>Contact:</strong> {section.contact}
-          </p>
-        )}
-        {section.responsibility && (
-          <p>
-            <strong>Responsibility:</strong> {section.responsibility}
-          </p>
-        )}
+        {section.organization && <p><strong>Organization:</strong> {section.organization}</p>}
+        {section.contact && <p><strong>Contact:</strong> {section.contact}</p>}
+        {section.responsibility && <p><strong>Responsibility:</strong> {section.responsibility}</p>}
       </div>
     );
   }
@@ -956,4 +583,370 @@ function SectionContent({ section, sectionKey }: { section: any; sectionKey: str
   }
 
   return <p>{section.description || "TBD"}</p>;
+}
+
+function StepNode({
+  step,
+  phaseColor,
+  index,
+  isActive,
+  onClick,
+}: {
+  step: any;
+  phaseColor: string;
+  index: number;
+  isActive: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <div
+      onClick={onClick}
+      style={{
+        width: 150,
+        minWidth: 150,
+        flexShrink: 0,
+        borderRadius: 10,
+        border: `1.5px solid ${isActive ? phaseColor : phaseColor + "44"}`,
+        background: "white",
+        cursor: "pointer",
+        transition: "all 0.2s",
+        overflow: "hidden",
+        boxShadow: isActive ? `0 0 0 2px ${phaseColor}` : "none",
+      }}
+    >
+      <div style={{ height: 5, background: step.actorColor, width: "100%" }} />
+      <div style={{ padding: "10px 10px 8px" }}>
+        <div style={{ fontSize: 10, opacity: 0.5, color: phaseColor, fontWeight: 600, marginBottom: 2 }}>
+          {String(index + 1).padStart(2, "0")}
+        </div>
+        <div style={{ fontSize: 12, fontWeight: 600, color: "var(--color-text-primary)", marginBottom: 6, lineHeight: 1.3 }}>
+          {step.title}
+        </div>
+        <div
+          style={{
+            display: "inline-block",
+            padding: "2px 7px",
+            borderRadius: 99,
+            background: step.actorColor + "18",
+            color: step.actorColor,
+            fontSize: 9,
+            fontWeight: 600,
+            textTransform: "uppercase",
+          }}
+        >
+          {step.actor}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ArrowConnector({ label, phaseColor }: { label: string; phaseColor: string }) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        position: "relative",
+        minWidth: 56,
+        flexShrink: 0,
+        justifyContent: "center",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", width: "100%", position: "relative" }}>
+        <div style={{ flex: 1, height: 2, background: phaseColor + "66" }} />
+        <div
+          style={{
+            width: 0,
+            height: 0,
+            borderTop: "5px solid transparent",
+            borderBottom: "5px solid transparent",
+            borderLeft: `7px solid ${phaseColor}66`,
+          }}
+        />
+      </div>
+      {label && (
+        <div
+          style={{
+            position: "absolute",
+            top: -18,
+            left: "50%",
+            transform: "translateX(-50%)",
+            fontSize: 9,
+            fontWeight: 600,
+            whiteSpace: "nowrap",
+            color: phaseColor,
+            background: "white",
+            padding: "1px 4px",
+            borderRadius: 3,
+            border: `1px solid ${phaseColor}33`,
+            maxWidth: 120,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+          }}
+        >
+          {label}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SplitBranch({
+  children,
+  phaseColor,
+  expandedStep,
+  onToggleStep,
+}: {
+  children: any[];
+  phaseColor: string;
+  expandedStep: string | null;
+  onToggleStep: (id: string) => void;
+}) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 0 }}>
+      <div style={{ width: 2, height: 20, background: phaseColor + "66" }} />
+
+      <div style={{ display: "flex", width: "100%", position: "relative", height: 20, alignItems: "stretch" }}>
+        <div
+          style={{
+            flex: 1,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            position: "relative",
+          }}
+        >
+          <div style={{ width: 2, height: "100%", background: phaseColor + "66" }} />
+          <div style={{ fontSize: 8, color: phaseColor, position: "absolute", bottom: -12 }}>✓</div>
+        </div>
+
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: "25%",
+            right: "25%",
+            height: 2,
+            background: phaseColor + "66",
+          }}
+        />
+
+        <div
+          style={{
+            flex: 1,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            position: "relative",
+          }}
+        >
+          <div style={{ width: 2, height: "100%", background: phaseColor + "66" }} />
+          <div style={{ fontSize: 8, color: phaseColor, position: "absolute", bottom: -12 }}>◐</div>
+        </div>
+      </div>
+
+      <div style={{ display: "flex", gap: 12, alignItems: "flex-start", marginTop: 12 }}>
+        {children.map((child, idx) => (
+          <StepNode
+            key={child.id}
+            step={child}
+            phaseColor={phaseColor}
+            index={idx}
+            isActive={expandedStep === child.id}
+            onClick={() => onToggleStep(child.id)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function DetailPanel({
+  step,
+  phase,
+  expandedSections,
+  toggleSection,
+  isSectionExpanded,
+  onClose,
+}: {
+  step: any;
+  phase: any;
+  expandedSections: Record<string, boolean>;
+  toggleSection: (stepId: string, key: string) => void;
+  isSectionExpanded: (stepId: string, key: string) => boolean;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      style={{
+        borderTop: `2px solid ${phase.color}`,
+        background: phase.color + "08",
+        padding: "20px 24px",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div
+            style={{
+              display: "inline-block",
+              padding: "2px 7px",
+              borderRadius: 99,
+              background: step.actorColor + "18",
+              color: step.actorColor,
+              fontSize: 9,
+              fontWeight: 600,
+              textTransform: "uppercase",
+            }}
+          >
+            {step.actor}
+          </div>
+          <h3 style={{ fontSize: 14, fontWeight: 600, color: "var(--color-text-primary)" }}>
+            {step.title}
+          </h3>
+        </div>
+        <button
+          onClick={onClose}
+          style={{
+            background: "transparent",
+            border: "none",
+            cursor: "pointer",
+            fontSize: 18,
+            color: "var(--color-text-secondary)",
+          }}
+        >
+          ✕
+        </button>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+        {Object.entries(step.sections).map(([sectionKey, section]) =>
+          renderSection(step, sectionKey, section as any, phase.color, isSectionExpanded, toggleSection),
+        )}
+      </div>
+    </div>
+  );
+}
+
+function PhaseRow({
+  phase,
+  expandedStep,
+  onToggleStep,
+  expandedSections,
+  toggleSection,
+  isSectionExpanded,
+}: {
+  phase: any;
+  expandedStep: string | null;
+  onToggleStep: (id: string) => void;
+  expandedSections: Record<string, boolean>;
+  toggleSection: (stepId: string, key: string) => void;
+  isSectionExpanded: (stepId: string, key: string) => boolean;
+}) {
+  const splitChildren = phase.steps.filter((s: any) => s.id.includes("5a") || s.id.includes("5b"));
+  const mainSteps = phase.steps.filter((s: any) => !s.id.includes("5a") && !s.id.includes("5b"));
+  const activeStep = phase.steps.find((s: any) => s.id === expandedStep) ?? null;
+
+  return (
+    <div
+      style={{
+        marginBottom: 32,
+        borderRadius: 14,
+        border: `1.5px solid ${phase.color}22`,
+        overflow: "hidden",
+      }}
+    >
+      <div
+        style={{
+          padding: "14px 20px",
+          background: phase.color,
+          color: "#fff",
+          fontSize: 16,
+          fontWeight: 600,
+          letterSpacing: 0.3,
+        }}
+      >
+        {phase.title}
+      </div>
+
+      <div style={{ overflowX: "auto", overflowY: "visible", padding: "24px 20px 16px", minHeight: 240 }}>
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 0, width: "max-content" }}>
+          {mainSteps.map((step: any, idx: number) => (
+            <div key={step.id} style={{ display: "flex", alignItems: "flex-start", gap: 0 }}>
+              <StepNode
+                step={step}
+                phaseColor={phase.color}
+                index={idx}
+                isActive={expandedStep === step.id}
+                onClick={() => onToggleStep(step.id)}
+              />
+              {idx < mainSteps.length - 1 && (
+                <ArrowConnector label={getArrowLabel(step)} phaseColor={phase.color} />
+              )}
+              {step.arrow === "split" && splitChildren.length > 0 && (
+                <SplitBranch
+                  children={splitChildren}
+                  phaseColor={phase.color}
+                  expandedStep={expandedStep}
+                  onToggleStep={onToggleStep}
+                />
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {activeStep && (
+        <DetailPanel
+          step={activeStep}
+          phase={phase}
+          expandedSections={expandedSections}
+          toggleSection={toggleSection}
+          isSectionExpanded={isSectionExpanded}
+          onClose={() => onToggleStep(activeStep.id)}
+        />
+      )}
+    </div>
+  );
+}
+
+export default function ProcessFlow() {
+  const [expandedStep, setExpandedStep] = useState<string | null>(null);
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
+
+  const toggleStep = (id: string) => setExpandedStep(expandedStep === id ? null : id);
+  const toggleSection = (stepId: string, sectionKey: string) => {
+    const key = `${stepId}-${sectionKey}`;
+    setExpandedSections((prev) => ({
+      ...prev,
+      [key]: !prev[key],
+    }));
+  };
+  const isSectionExpanded = (stepId: string, sectionKey: string) => {
+    return expandedSections[`${stepId}-${sectionKey}`] || false;
+  };
+
+  return (
+    <div style={{ fontFamily: "'DM Sans', sans-serif", maxWidth: 1100, margin: "0 auto", padding: "16px 8px" }}>
+      <div style={{ marginBottom: 24, padding: "16px", background: "var(--color-background-secondary)", borderRadius: 10 }}>
+        <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>PCH Process Flow — Visual Diagram</h1>
+        <p style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>
+          Click any step node to view detailed sections: Input, Output, Deliverables, Communication, Timeline, Dependencies, SLAs, Owner, and Data Lineage.
+        </p>
+      </div>
+
+      {phases.map((phase) => (
+        <PhaseRow
+          key={phase.id}
+          phase={phase}
+          expandedStep={expandedStep}
+          onToggleStep={toggleStep}
+          expandedSections={expandedSections}
+          toggleSection={toggleSection}
+          isSectionExpanded={isSectionExpanded}
+        />
+      ))}
+    </div>
+  );
 }
