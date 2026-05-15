@@ -10,7 +10,8 @@
       "Bash(git push *)",
       "Bash(vercel --version)",
       "Bash(vercel deploy *)",
-      "Bash(npm install *)"
+      "Bash(npm install *)",
+      "Skill(grill-me)"
     ]
   }
 }
