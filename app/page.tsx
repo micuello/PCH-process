@@ -766,14 +766,12 @@ function SplitBranch({
 function DetailPanel({
   step,
   phase,
-  expandedSections,
   toggleSection,
   isSectionExpanded,
   onClose,
 }: {
   step: any;
   phase: any;
-  expandedSections: Record<string, boolean>;
   toggleSection: (stepId: string, key: string) => void;
   isSectionExpanded: (stepId: string, key: string) => boolean;
   onClose: () => void;
@@ -901,7 +899,6 @@ function PhaseRow({
         <DetailPanel
           step={activeStep}
           phase={phase}
-          expandedSections={expandedSections}
           toggleSection={toggleSection}
           isSectionExpanded={isSectionExpanded}
           onClose={() => onToggleStep(activeStep.id)}
