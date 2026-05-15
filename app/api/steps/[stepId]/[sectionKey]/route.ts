@@ -3,9 +3,10 @@ import { getDefaultPhases } from "@/lib/defaultData";
 
 export async function PATCH(
   req: Request,
-  { params }: { params: { stepId: string; sectionKey: string } }
+  { params }: { params: Promise<{ stepId: string; sectionKey: string }> }
 ) {
   try {
+    const { stepId, sectionKey } = await params;
     const newSectionData = await req.json();
 
     let current = await kv.get("pch-process-flow");
@@ -17,12 +18,12 @@ export async function PATCH(
     const updated = (current as any[]).map((phase) => ({
       ...phase,
       steps: phase.steps.map((step: any) =>
-        step.id === params.stepId
+        step.id === stepId
           ? {
               ...step,
               sections: {
                 ...step.sections,
-                [params.sectionKey]: newSectionData,
+                [sectionKey]: newSectionData,
               },
             }
           : step
