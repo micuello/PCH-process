@@ -694,12 +694,12 @@ function ArrowConnector({ label, phaseColor }: { label: string; phaseColor: stri
 }
 
 function SplitBranch({
-  children,
+  splitChildren,
   phaseColor,
   expandedStep,
   onToggleStep,
 }: {
-  children: any[];
+  splitChildren: any[];
   phaseColor: string;
   expandedStep: string | null;
   onToggleStep: (id: string) => void;
@@ -748,7 +748,7 @@ function SplitBranch({
       </div>
 
       <div style={{ display: "flex", gap: 12, alignItems: "flex-start", marginTop: 12 }}>
-        {children.map((child, idx) => (
+        {splitChildren.map((child, idx) => (
           <StepNode
             key={child.id}
             step={child}
@@ -886,7 +886,7 @@ function PhaseRow({
               )}
               {step.arrow === "split" && splitChildren.length > 0 && (
                 <SplitBranch
-                  children={splitChildren}
+                  splitChildren={splitChildren}
                   phaseColor={phase.color}
                   expandedStep={expandedStep}
                   onToggleStep={onToggleStep}
