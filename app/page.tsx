@@ -1,445 +1,7 @@
 "use client";
 
-import { useState } from "react";
-
-const phases = [
-  {
-    id: "forecast",
-    title: "Phase 1 — Forecasting",
-    color: "#0F6E56",
-    bgColor: "#E1F5EE",
-    steps: [
-      {
-        id: "f1",
-        actor: "PCH",
-        actorColor: "#D85A30",
-        title: "Share forecast",
-        detail: "PCH sends demand forecast to CSA TH",
-        sections: {
-          input: {
-            description: "PCH sends the following forecast data",
-            dataElements: [
-              { name: "Origin country", description: "Always Thailand" },
-              { name: "Destination country", description: "Country-level (except where specific port is designated)" },
-              { name: "Number of containers", description: "Total container count per destination" },
-              { name: "ETD period", description: "Requested departure period (e.g. P3W1)" },
-            ],
-            frequency: "Once per month, 3 months before ETD",
-            source: "PCH team (contact: Hut)",
-            escalation: {
-              trigger: "If forecast doesn't arrive on schedule",
-              level1: { to: "Hut (PCH)", method: "Email", action: "Resend forecast immediately" },
-              level2: { to: "Sukumar/KT", method: "Email", action: "Escalate and coordinate resend", timeToLevel2: "2 hours after Level 1" },
-            },
-          },
-          output: {
-            description: "CSA TH confirms receipt of the forecast data. No transformation happens at this step — it is purely receive and acknowledge.",
-          },
-          deliverables: {
-            format: "Excel file",
-            method: "Email",
-            recipient: "CSA TH team inbox (picked up by Mui)",
-            confirmation: "Mui sends email confirmation back to Hut acknowledging receipt",
-          },
-          communication: {
-            sender: { actor: "PCH", contact: "Hut" },
-            receiver: { actor: "CSA TH", contact: "Mui" },
-            confirmationRequired: true,
-            confirmationMethod: "Email acknowledgment",
-          },
-          timeline: {
-            frequency: "Once per month",
-            relativeToETD: "3 months before ETD",
-            additionalConstraints: "None beyond the monthly cadence",
-          },
-          dependencies: {
-            upstream: "None — this is the initiation step of the entire process",
-            blockedBy: [],
-          },
-          slas: {
-            frequency: "Once per month",
-            maxCompletionTime: null,
-            escalationSLAminutes: 240,
-            escalationSLADescription: "If not received within expected monthly window, escalate within 4 hours",
-          },
-          owner: {
-            organization: "CSA TH",
-            contact: "Mui",
-            responsibility: "Receiving and validating forecast data",
-          },
-          lineage: {
-            outputFields: [
-              { field: "Origin country", flowsTo: "f2 — match to GOT origin" },
-              { field: "Destination country", flowsTo: "f2 — match to GOT destination → determines which lanes apply" },
-              { field: "Number of containers", flowsTo: "f3 — input for carrier allocation split calculation" },
-              { field: "ETD period", flowsTo: "f2 — match to GOT period/week allocation; f3 — determines which period's allocation ratios to use" },
-            ],
-          },
-        },
-        arrow: "right",
-      },
-      {
-        id: "f2",
-        actor: "CSA TH",
-        actorColor: "#534AB7",
-        title: "Match to Cargoo GOT",
-        detail: "Map PCH forecast to Cargoo lane structure",
-        sections: {
-          input: {
-            description: "Two data sources feed into this step",
-            dataElements: [
-              { name: "Origin country (PCH)", description: "Always Thailand" },
-              { name: "Destination country (PCH)", description: "Country-level (except where specific port is designated)" },
-              { name: "Number of containers (PCH)", description: "Total container count per destination" },
-              { name: "ETD period (PCH)", description: "Requested departure period (e.g. P3W1)" },
-              { name: "Line ID (Cargoo GOT)", description: "Unique lane identifier" },
-              { name: "Origin country (Cargoo)", description: "Thailand" },
-              { name: "Destination country (Cargoo)", description: "Matches PCH destination" },
-              { name: "Quarterly allocation (Cargoo)", description: "Must be divided by period and week to match PCH forecast granularity" },
-              { name: "POR (Place of receipt)", description: "From Cargoo GOT" },
-              { name: "FND (Final destination)", description: "From Cargoo GOT" },
-              { name: "Requirements per market", description: "Additional input data" },
-            ],
-            frequency: "Once per month, aligned with PCH forecast cycle",
-            source: "PCH forecast (f1) + Cargoo GOT system",
-            transformation: "Match origin/destination → extract Line ID–Carrier combinations → count total containers → calculate % share → multiply by PCH forecast to split by Lane ID–Carrier–Period",
-            escalation: {
-              trigger: "If GOT mapping or period allocation data is unavailable or inconsistent",
-              level1: { to: "Mui (CSA TH)", method: "Email", action: "Verify GOT data and resolve mapping inconsistencies" },
-              level2: { to: "Victor", method: "Email", action: "Coordinate with Cargoo TMS to correct lane/period allocations", timeToLevel2: "4 hours after Level 1" },
-            },
-          },
-          output: {
-            description: "Carrier allocation split with Lane ID–Carrier–Period unique identifier, containing: TEU count, Carrier, Lane ID, Period",
-          },
-          deliverables: {
-            format: "Excel file",
-            method: "Email",
-            recipient: "Carriers (MSC, Maersk, ONE, OOCL, etc.)",
-            confirmation: "Email receipt acknowledgment from lead carrier contact",
-          },
-          communication: {
-            sender: { actor: "CSA TH", contact: "Operations team" },
-            receiver: { actor: "Carriers", contact: "Carrier operations contacts" },
-            confirmationRequired: true,
-            confirmationMethod: "Email acknowledgment from carriers",
-          },
-          timeline: {
-            frequency: "Once per month",
-            relativeToETD: "Aligned with monthly forecast cycle from PCH",
-            additionalConstraints: "Must be completed within 2 business days of receiving PCH forecast",
-          },
-          dependencies: {
-            upstream: "f1 must be complete — PCH forecast must have been received and confirmed by Mui",
-            blockedBy: ["f1"],
-          },
-          slas: {
-            frequency: "Once per month",
-            maxCompletionTime: "2 business days after receiving PCH forecast",
-            escalationSLAminutes: 480,
-            escalationSLADescription: "If not completed within 2 business days, escalate within 8 hours",
-          },
-          owner: {
-            organization: "CSA TH",
-            contact: "Operations team (managed by Mui)",
-            responsibility: "Matching PCH forecast to Cargoo GOT lanes, calculating allocation splits by carrier and period",
-          },
-          lineage: {
-            outputFields: [
-              { field: "Lane ID", flowsTo: "f3 (carrier split calculation), f4 (carrier notification), f5 (forecast dashboard)" },
-              { field: "Carrier", flowsTo: "f3 (split ratio), f4 (carrier notification), f5 (dashboard)" },
-              { field: "Loading week (Period)", flowsTo: "f3 (period-specific allocation ratio), f5 (dashboard period column)" },
-              { field: "Containers (split TEU)", flowsTo: "f3 (allocated container count), f4 (space reservation qty), f5 (allocated containers column)" },
-            ],
-          },
-        },
-        arrow: "right",
-      },
-      {
-        id: "f3",
-        actor: "CSA TH",
-        actorColor: "#534AB7",
-        title: "Carrier allocation split",
-        detail: "If multiple carriers serve same destination, split by allocation ratio",
-        sections: {
-          input: { description: "Receiving output from f1 and f2" },
-          output: { description: "TBD" },
-          deliverables: { description: "TBD" },
-          communication: { description: "TBD" },
-          timeline: { description: "TBD" },
-          dependencies: { description: "Depends on f1 and f2 completion" },
-          slas: { description: "TBD" },
-          owner: { description: "TBD" },
-          lineage: { description: "TBD" },
-        },
-        arrow: "right",
-      },
-      {
-        id: "f4",
-        actor: "Carriers",
-        actorColor: "#378ADD",
-        title: "Space reservation",
-        detail: "Allocated quantities shared with carriers to reserve vessel space",
-        sections: {
-          input: { description: "TBD" },
-          output: { description: "TBD" },
-          deliverables: { description: "TBD" },
-          communication: { description: "TBD" },
-          timeline: { description: "TBD" },
-          dependencies: { description: "TBD" },
-          slas: { description: "TBD" },
-          owner: { description: "TBD" },
-          lineage: { description: "TBD" },
-        },
-        arrow: "down",
-      },
-      {
-        id: "f5",
-        actor: "CSA TH",
-        actorColor: "#534AB7",
-        title: "Create forecast dashboard",
-        detail: "Dashboard to track forecast → actual progression",
-        sections: {
-          input: { description: "TBD" },
-          output: { description: "TBD" },
-          deliverables: { description: "TBD" },
-          communication: { description: "TBD" },
-          timeline: { description: "TBD" },
-          dependencies: { description: "TBD" },
-          slas: { description: "TBD" },
-          owner: { description: "TBD" },
-          lineage: { description: "TBD" },
-        },
-        arrow: null,
-      },
-    ],
-  },
-  {
-    id: "booking",
-    title: "Phase 2 — Booking process",
-    color: "#534AB7",
-    bgColor: "#EEEDFE",
-    steps: [
-      {
-        id: "b1",
-        actor: "PCH",
-        actorColor: "#D85A30",
-        title: "Send booking requests",
-        detail: "PCH submits formal booking instructions",
-        sections: {
-          input: { description: "TBD" },
-          output: { description: "TBD" },
-          deliverables: { description: "TBD" },
-          communication: { description: "TBD" },
-          timeline: { description: "TBD" },
-          dependencies: { description: "TBD" },
-          slas: { description: "TBD" },
-          owner: { description: "TBD" },
-          lineage: { description: "TBD" },
-        },
-        arrow: "right",
-      },
-      {
-        id: "b2",
-        actor: "CSA TH",
-        actorColor: "#534AB7",
-        title: "Transform to Cargoo shipments",
-        detail: "Split booking lines into individual shipments",
-        sections: {
-          input: { description: "TBD" },
-          output: { description: "TBD" },
-          deliverables: { description: "TBD" },
-          communication: { description: "TBD" },
-          timeline: { description: "TBD" },
-          dependencies: { description: "TBD" },
-          slas: { description: "TBD" },
-          owner: { description: "TBD" },
-          lineage: { description: "TBD" },
-        },
-        arrow: "right",
-      },
-      {
-        id: "b3",
-        actor: "Cargoo",
-        actorColor: "#0F6E56",
-        title: "Store shipment data",
-        detail: "Record all booking and transport plan data",
-        sections: {
-          input: { description: "TBD" },
-          output: { description: "TBD" },
-          deliverables: { description: "TBD" },
-          communication: { description: "TBD" },
-          timeline: { description: "TBD" },
-          dependencies: { description: "TBD" },
-          slas: { description: "TBD" },
-          owner: { description: "TBD" },
-          lineage: { description: "TBD" },
-        },
-        arrow: "down",
-      },
-      {
-        id: "b4",
-        actor: "CSA TH",
-        actorColor: "#534AB7",
-        title: "Update booking dashboard",
-        detail: "Capture granular booking-level tracking",
-        sections: {
-          input: { description: "TBD" },
-          output: { description: "TBD" },
-          deliverables: { description: "TBD" },
-          communication: { description: "TBD" },
-          timeline: { description: "TBD" },
-          dependencies: { description: "TBD" },
-          slas: { description: "TBD" },
-          owner: { description: "TBD" },
-          lineage: { description: "TBD" },
-        },
-        arrow: "right",
-      },
-      {
-        id: "b5",
-        actor: "System",
-        actorColor: "#BA7517",
-        title: "Container pool created",
-        detail: "Pool of confirmed containers available for PCH SKU planning",
-        sections: {
-          input: { description: "TBD" },
-          output: { description: "TBD" },
-          deliverables: { description: "TBD" },
-          communication: { description: "TBD" },
-          timeline: { description: "TBD" },
-          dependencies: { description: "TBD" },
-          slas: { description: "TBD" },
-          owner: { description: "TBD" },
-          lineage: { description: "TBD" },
-        },
-        arrow: null,
-      },
-    ],
-  },
-  {
-    id: "planning",
-    title: "Phase 3 — Planning & warehouse execution",
-    color: "#BA7517",
-    bgColor: "#FAEEDA",
-    steps: [
-      {
-        id: "p1",
-        actor: "PCH",
-        actorColor: "#D85A30",
-        title: "Assign SKUs to containers",
-        detail: "PCH selects containers from pool and assigns product",
-        sections: {
-          input: { description: "TBD" },
-          output: { description: "TBD" },
-          deliverables: { description: "TBD" },
-          communication: { description: "TBD" },
-          timeline: { description: "TBD" },
-          dependencies: { description: "TBD" },
-          slas: { description: "TBD" },
-          owner: { description: "TBD" },
-          lineage: { description: "TBD" },
-        },
-        arrow: "right",
-      },
-      {
-        id: "p2",
-        actor: "Cargoo",
-        actorColor: "#0F6E56",
-        title: "Generate container reference",
-        detail: "Cargoo generates the reference — not PCH",
-        sections: {
-          input: { description: "TBD" },
-          output: { description: "TBD" },
-          deliverables: { description: "TBD" },
-          communication: { description: "TBD" },
-          timeline: { description: "TBD" },
-          dependencies: { description: "TBD" },
-          slas: { description: "TBD" },
-          owner: { description: "TBD" },
-          lineage: { description: "TBD" },
-        },
-        arrow: "right",
-      },
-      {
-        id: "p3",
-        actor: "PCH",
-        actorColor: "#D85A30",
-        title: "Share planning with warehouse",
-        detail: "Planning information sent to warehouse for picking",
-        sections: {
-          input: { description: "TBD" },
-          output: { description: "TBD" },
-          deliverables: { description: "TBD" },
-          communication: { description: "TBD" },
-          timeline: { description: "TBD" },
-          dependencies: { description: "TBD" },
-          slas: { description: "TBD" },
-          owner: { description: "TBD" },
-          lineage: { description: "TBD" },
-        },
-        arrow: "down",
-      },
-      {
-        id: "p4",
-        actor: "Warehouse",
-        actorColor: "#888780",
-        title: "Execute picking",
-        detail: "Warehouse performs physical picking and reports status",
-        sections: {
-          input: { description: "TBD" },
-          output: { description: "TBD" },
-          deliverables: { description: "TBD" },
-          communication: { description: "TBD" },
-          timeline: { description: "TBD" },
-          dependencies: { description: "TBD" },
-          slas: { description: "TBD" },
-          owner: { description: "TBD" },
-          lineage: { description: "TBD" },
-        },
-        arrow: "split",
-      },
-      {
-        id: "p5a",
-        actor: "Complete",
-        actorColor: "#0F6E56",
-        title: "Picking complete",
-        detail: "All SKUs picked successfully",
-        sections: {
-          input: { description: "TBD" },
-          output: { description: "TBD" },
-          deliverables: { description: "TBD" },
-          communication: { description: "TBD" },
-          timeline: { description: "TBD" },
-          dependencies: { description: "TBD" },
-          slas: { description: "TBD" },
-          owner: { description: "TBD" },
-          lineage: { description: "TBD" },
-        },
-        arrow: null,
-      },
-      {
-        id: "p5b",
-        actor: "Partial",
-        actorColor: "#D85A30",
-        title: "Picking partial",
-        detail: "Not all SKUs available",
-        sections: {
-          input: { description: "TBD" },
-          output: { description: "TBD" },
-          deliverables: { description: "TBD" },
-          communication: { description: "TBD" },
-          timeline: { description: "TBD" },
-          dependencies: { description: "TBD" },
-          slas: { description: "TBD" },
-          owner: { description: "TBD" },
-          lineage: { description: "TBD" },
-        },
-        arrow: null,
-      },
-    ],
-  },
-];
+import { useState, useEffect } from "react";
+import { getDefaultPhases } from "@/lib/defaultData";
 
 const sectionTitles = {
   input: "📥 Input",
@@ -460,65 +22,6 @@ function getArrowLabel(step: any): string {
   if (fields.length === 1) return fields[0].field;
   if (fields.length === 2) return `${fields[0].field} · ${fields[1].field}`;
   return `${fields[0].field} +${fields.length - 1}`;
-}
-
-function renderSection(
-  step: any,
-  sectionKey: string,
-  section: any,
-  phaseColor: string,
-  isSectionExpanded: (stepId: string, key: string) => boolean,
-  toggleSection: (stepId: string, key: string) => void,
-) {
-  const isExpanded = isSectionExpanded(step.id, sectionKey);
-
-  return (
-    <div
-      key={sectionKey}
-      style={{
-        marginBottom: 12,
-        borderRadius: 8,
-        border: `1px solid ${phaseColor}22`,
-        overflow: "hidden",
-      }}
-    >
-      <div
-        onClick={() => toggleSection(step.id, sectionKey)}
-        style={{
-          padding: "10px 12px",
-          background: isExpanded ? phaseColor + "08" : "transparent",
-          cursor: "pointer",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          transition: "background 0.2s",
-          borderBottom: isExpanded ? `1px solid ${phaseColor}22` : "none",
-        }}
-      >
-        <span
-          style={{
-            fontSize: 13,
-            fontWeight: 600,
-            color: phaseColor,
-            display: "flex",
-            alignItems: "center",
-            gap: 6,
-          }}
-        >
-          {sectionTitles[sectionKey as keyof typeof sectionTitles]}
-        </span>
-        <span style={{ fontSize: 12, transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}>
-          ▼
-        </span>
-      </div>
-
-      {isExpanded && (
-        <div style={{ padding: "12px", fontSize: 12, color: "var(--color-text-secondary)", lineHeight: 1.6 }}>
-          <SectionContent section={section} sectionKey={sectionKey} />
-        </div>
-      )}
-    </div>
-  );
 }
 
 function SectionContent({ section, sectionKey }: { section: any; sectionKey: string }) {
@@ -559,9 +62,7 @@ function SectionContent({ section, sectionKey }: { section: any; sectionKey: str
       </div>
     );
   }
-
   if (sectionKey === "output") return <div>{section.description}</div>;
-
   if (sectionKey === "deliverables") {
     return (
       <div>
@@ -572,7 +73,6 @@ function SectionContent({ section, sectionKey }: { section: any; sectionKey: str
       </div>
     );
   }
-
   if (sectionKey === "communication") {
     return (
       <div>
@@ -583,7 +83,6 @@ function SectionContent({ section, sectionKey }: { section: any; sectionKey: str
       </div>
     );
   }
-
   if (sectionKey === "timeline") {
     return (
       <div>
@@ -593,7 +92,6 @@ function SectionContent({ section, sectionKey }: { section: any; sectionKey: str
       </div>
     );
   }
-
   if (sectionKey === "dependencies") {
     return (
       <div>
@@ -602,7 +100,6 @@ function SectionContent({ section, sectionKey }: { section: any; sectionKey: str
       </div>
     );
   }
-
   if (sectionKey === "slas") {
     return (
       <div>
@@ -612,7 +109,6 @@ function SectionContent({ section, sectionKey }: { section: any; sectionKey: str
       </div>
     );
   }
-
   if (sectionKey === "owner") {
     return (
       <div>
@@ -622,7 +118,6 @@ function SectionContent({ section, sectionKey }: { section: any; sectionKey: str
       </div>
     );
   }
-
   if (sectionKey === "lineage") {
     return (
       <div>
@@ -639,9 +134,226 @@ function SectionContent({ section, sectionKey }: { section: any; sectionKey: str
       </div>
     );
   }
-
   return <p>{section.description || "TBD"}</p>;
 }
+
+function EditForm({
+  section,
+  onSave,
+  onCancel,
+  phaseColor,
+}: {
+  section: any;
+  onSave: (newData: any) => void;
+  onCancel: () => void;
+  phaseColor: string;
+}) {
+  const [editData, setEditData] = useState(JSON.parse(JSON.stringify(section)));
+
+  const handleChange = (path: string, value: any) => {
+    const keys = path.split(".");
+    const newData = JSON.parse(JSON.stringify(editData));
+    let obj = newData;
+    for (let i = 0; i < keys.length - 1; i++) {
+      if (!obj[keys[i]]) obj[keys[i]] = {};
+      obj = obj[keys[i]];
+    }
+    obj[keys[keys.length - 1]] = value;
+    setEditData(newData);
+  };
+
+  return (
+    <div style={{ background: "white", border: `1px solid ${phaseColor}33`, borderRadius: 8, padding: 12, marginBottom: 12 }}>
+      {typeof editData === "object" && editData !== null && (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+          {Object.entries(editData).map(([key, value]) => (
+            <div key={key}>
+              <label style={{ fontSize: 11, fontWeight: 600, color: phaseColor, display: "block", marginBottom: 4 }}>
+                {key}
+              </label>
+              {typeof value === "string" ? (
+                <textarea
+                  value={value}
+                  onChange={(e) => handleChange(key, e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: 6,
+                    borderRadius: 4,
+                    border: `1px solid ${phaseColor}22`,
+                    fontSize: 11,
+                    fontFamily: "monospace",
+                    minHeight: 60,
+                  }}
+                />
+              ) : typeof value === "boolean" ? (
+                <select
+                  value={value ? "true" : "false"}
+                  onChange={(e) => handleChange(key, e.target.value === "true")}
+                  style={{ width: "100%", padding: 6, borderRadius: 4, border: `1px solid ${phaseColor}22`, fontSize: 11 }}
+                >
+                  <option value="true">Yes</option>
+                  <option value="false">No</option>
+                </select>
+              ) : (
+                <textarea
+                  value={JSON.stringify(value, null, 2)}
+                  onChange={(e) => {
+                    try {
+                      handleChange(key, JSON.parse(e.target.value));
+                    } catch (e) {
+                      // JSON parse error, ignore
+                    }
+                  }}
+                  style={{
+                    width: "100%",
+                    padding: 6,
+                    borderRadius: 4,
+                    border: `1px solid ${phaseColor}22`,
+                    fontSize: 11,
+                    fontFamily: "monospace",
+                    minHeight: 80,
+                  }}
+                />
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+        <button
+          onClick={() => onSave(editData)}
+          style={{
+            padding: "6px 12px",
+            background: phaseColor,
+            color: "white",
+            border: "none",
+            borderRadius: 4,
+            cursor: "pointer",
+            fontSize: 12,
+            fontWeight: 600,
+          }}
+        >
+          ✓ Save
+        </button>
+        <button
+          onClick={onCancel}
+          style={{
+            padding: "6px 12px",
+            background: "transparent",
+            color: phaseColor,
+            border: `1px solid ${phaseColor}`,
+            borderRadius: 4,
+            cursor: "pointer",
+            fontSize: 12,
+          }}
+        >
+          ✕ Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function renderSection(
+  step: any,
+  sectionKey: string,
+  section: any,
+  phaseColor: string,
+  isSectionExpanded: (stepId: string, key: string) => boolean,
+  toggleSection: (stepId: string, key: string) => void,
+  editingSection: string | null,
+  setEditingSection: (key: string | null) => void,
+  onSaveSection: (stepId: string, sectionKey: string, data: any) => Promise<void>,
+  savingSection: string | null,
+) {
+  const isExpanded = isSectionExpanded(step.id, sectionKey);
+  const isEditing = editingSection === `${step.id}-${sectionKey}`;
+  const isSaving = savingSection === `${step.id}-${sectionKey}`;
+
+  return (
+    <div
+      key={sectionKey}
+      style={{
+        marginBottom: 12,
+        borderRadius: 8,
+        border: `1px solid ${phaseColor}22`,
+        overflow: "hidden",
+      }}
+    >
+      <div
+        style={{
+          padding: "10px 12px",
+          background: isExpanded ? phaseColor + "08" : "transparent",
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          transition: "background 0.2s",
+          borderBottom: isExpanded ? `1px solid ${phaseColor}22` : "none",
+        }}
+      >
+        <div
+          onClick={() => toggleSection(step.id, sectionKey)}
+          style={{ display: "flex", alignItems: "center", gap: 6, flex: 1 }}
+        >
+          <span
+            style={{
+              fontSize: 13,
+              fontWeight: 600,
+              color: phaseColor,
+            }}
+          >
+            {sectionTitles[sectionKey as keyof typeof sectionTitles]}
+          </span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {isSaving && <span style={{ fontSize: 10, color: phaseColor }}>💾 Saving...</span>}
+          <button
+            onClick={() => setEditingSection(isEditing ? null : `${step.id}-${sectionKey}`)}
+            style={{
+              background: "transparent",
+              border: "none",
+              cursor: "pointer",
+              fontSize: 14,
+              color: phaseColor,
+              opacity: 0.7,
+            }}
+          >
+            ✎
+          </button>
+          <span
+            onClick={() => toggleSection(step.id, sectionKey)}
+            style={{ fontSize: 12, transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s", cursor: "pointer" }}
+          >
+            ▼
+          </span>
+        </div>
+      </div>
+
+      {isExpanded && (
+        <div style={{ padding: "12px", fontSize: 12, color: "var(--color-text-secondary)", lineHeight: 1.6 }}>
+          {isEditing ? (
+            <EditForm
+              section={section}
+              onSave={(newData) => {
+                onSaveSection(step.id, sectionKey, newData).then(() => {
+                  setEditingSection(null);
+                });
+              }}
+              onCancel={() => setEditingSection(null)}
+              phaseColor={phaseColor}
+            />
+          ) : (
+            <SectionContent section={section} sectionKey={sectionKey} />
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Rest of the components (StepNode, ArrowConnector, SplitBranch, DetailPanel, PhaseRow) - unchanged
 
 function StepNode({
   step,
@@ -827,12 +539,20 @@ function DetailPanel({
   toggleSection,
   isSectionExpanded,
   onClose,
+  editingSection,
+  setEditingSection,
+  onSaveSection,
+  savingSection,
 }: {
   step: any;
   phase: any;
   toggleSection: (stepId: string, key: string) => void;
   isSectionExpanded: (stepId: string, key: string) => boolean;
   onClose: () => void;
+  editingSection: string | null;
+  setEditingSection: (key: string | null) => void;
+  onSaveSection: (stepId: string, sectionKey: string, data: any) => Promise<void>;
+  savingSection: string | null;
 }) {
   return (
     <div
@@ -878,7 +598,7 @@ function DetailPanel({
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
         {Object.entries(step.sections).map(([sectionKey, section]) =>
-          renderSection(step, sectionKey, section as any, phase.color, isSectionExpanded, toggleSection),
+          renderSection(step, sectionKey, section as any, phase.color, isSectionExpanded, toggleSection, editingSection, setEditingSection, onSaveSection, savingSection),
         )}
       </div>
     </div>
@@ -891,12 +611,20 @@ function PhaseRow({
   onToggleStep,
   toggleSection,
   isSectionExpanded,
+  editingSection,
+  setEditingSection,
+  onSaveSection,
+  savingSection,
 }: {
   phase: any;
   expandedStep: string | null;
   onToggleStep: (id: string) => void;
   toggleSection: (stepId: string, key: string) => void;
   isSectionExpanded: (stepId: string, key: string) => boolean;
+  editingSection: string | null;
+  setEditingSection: (key: string | null) => void;
+  onSaveSection: (stepId: string, sectionKey: string, data: any) => Promise<void>;
+  savingSection: string | null;
 }) {
   const splitChildren = phase.steps.filter((s: any) => s.id.includes("5a") || s.id.includes("5b"));
   const mainSteps = phase.steps.filter((s: any) => !s.id.includes("5a") && !s.id.includes("5b"));
@@ -958,6 +686,10 @@ function PhaseRow({
           toggleSection={toggleSection}
           isSectionExpanded={isSectionExpanded}
           onClose={() => onToggleStep(activeStep.id)}
+          editingSection={editingSection}
+          setEditingSection={setEditingSection}
+          onSaveSection={onSaveSection}
+          savingSection={savingSection}
         />
       )}
     </div>
@@ -965,8 +697,24 @@ function PhaseRow({
 }
 
 export default function ProcessFlow() {
+  const [phases, setPhases] = useState<any[]>(getDefaultPhases());
+  const [loading, setLoading] = useState(true);
   const [expandedStep, setExpandedStep] = useState<string | null>(null);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
+  const [editingSection, setEditingSection] = useState<string | null>(null);
+  const [savingSection, setSavingSection] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/steps")
+      .then((r) => r.json())
+      .then((data) => {
+        setPhases(data);
+        setLoading(false);
+      })
+      .catch(() => {
+        setLoading(false);
+      });
+  }, []);
 
   const toggleStep = (id: string) => setExpandedStep(expandedStep === id ? null : id);
   const toggleSection = (stepId: string, sectionKey: string) => {
@@ -980,13 +728,35 @@ export default function ProcessFlow() {
     return expandedSections[`${stepId}-${sectionKey}`] || false;
   };
 
+  const saveSection = async (stepId: string, sectionKey: string, newData: any) => {
+    setSavingSection(`${stepId}-${sectionKey}`);
+    try {
+      const response = await fetch(`/api/steps/${stepId}/${sectionKey}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newData),
+      });
+
+      if (!response.ok) throw new Error("Save failed");
+
+      const result = await response.json();
+      setPhases(result.data || phases);
+    } catch (error) {
+      console.error("Save error:", error);
+      alert("Failed to save. Please try again.");
+    } finally {
+      setSavingSection(null);
+    }
+  };
+
   return (
     <div style={{ fontFamily: "'DM Sans', sans-serif", maxWidth: 1100, margin: "0 auto", padding: "16px 8px" }}>
       <div style={{ marginBottom: 24, padding: "16px", background: "var(--color-background-secondary)", borderRadius: 10 }}>
-        <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>PCH Process Flow — Visual Diagram</h1>
+        <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>PCH Process Flow — Editable Diagram</h1>
         <p style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>
-          Click any step node to view detailed sections: Input, Output, Deliverables, Communication, Timeline, Dependencies, SLAs, Owner, and Data Lineage.
+          Click any step to expand. Click the ✎ pencil icon on any section to edit it. Changes sync to all team members.
         </p>
+        {loading && <p style={{ fontSize: 12, color: "#999", marginTop: 8 }}>Loading...</p>}
       </div>
 
       {phases.map((phase) => (
@@ -997,6 +767,10 @@ export default function ProcessFlow() {
           onToggleStep={toggleStep}
           toggleSection={toggleSection}
           isSectionExpanded={isSectionExpanded}
+          editingSection={editingSection}
+          setEditingSection={setEditingSection}
+          onSaveSection={saveSection}
+          savingSection={savingSection}
         />
       ))}
     </div>
