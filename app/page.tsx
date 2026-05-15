@@ -831,14 +831,12 @@ function PhaseRow({
   phase,
   expandedStep,
   onToggleStep,
-  expandedSections,
   toggleSection,
   isSectionExpanded,
 }: {
   phase: any;
   expandedStep: string | null;
   onToggleStep: (id: string) => void;
-  expandedSections: Record<string, boolean>;
   toggleSection: (stepId: string, key: string) => void;
   isSectionExpanded: (stepId: string, key: string) => boolean;
 }) {
@@ -939,7 +937,6 @@ export default function ProcessFlow() {
           phase={phase}
           expandedStep={expandedStep}
           onToggleStep={toggleStep}
-          expandedSections={expandedSections}
           toggleSection={toggleSection}
           isSectionExpanded={isSectionExpanded}
         />
